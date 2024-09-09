@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive CRT Terminal with P2P Sharing</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+    body,
+    html {
+      height: 100%;
+      margin: 0;
+      background-color: #000;
+      overflow: hidden;
+      font-family: 'VT323', monospace;
+    }
+
+    .terminal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 80%;
+      background-color: rgba(10, 10, 10, 0.8);
+      border-radius: 20px;
+      padding: 20px;
+      color: #33ff33;
+      font-size: 1.2em;
+      overflow-y: auto;
+      box-shadow: 0 0 10px rgba(51, 255, 51, 0.5);
+      text-shadow: 0 0 5px rgba(51, 255, 51, 0.5);
+    }
+
+    #output {
+      white-space: pre-wrap;
+      margin-bottom: 10px;
+    }
+
+    #input-line {
+      display: flex;
+      align-items: center;
+    }
+
+    #prompt {
+      margin-right: 5px;
+    }
+
+    #command-input {
+      height: 100%;
+      width: 100%;
+      flex-grow: 1;
+      background: transparent;
+      border: none;
+      color: #33ff33;
+      font-family: 'VT323', monospace;
+      font-size: 1em;
+      outline: none;
+    }
+
+    .cursor {
+      animation: blink 1s step-start infinite;
+    }
+
+    #peer-id {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #33ff33;
+      font-size: 0.8em;
+    }
+
+    @keyframes flicker {
+      0% {
+        opacity: 0.27861;
+      }
+
+      5% {
+        opacity: 0.34769;
+      }
+
+      10% {
+        opacity: 0.23604;
+      }
+
+      15% {
+        opacity: 0.90626;
+      }
+
+      20% {
+        opacity: 0.18128;
+      }
+
+      25% {
+        opacity: 0.83891;
+      }
+
+      30% {
+        opacity: 0.65583;
+      }
+
+      35% {
+        opacity: 0.67807;
+      }
+
+      40% {
+        opacity: 0.26559;
+      }
+
+      45% {
+        opacity: 0.84693;
+      }
+
+      50% {
+        opacity: 0.96019;
+      }
+
+      55% {
+        opacity: 0.08594;
+      }
+
+      60% {
+        opacity: 0.20313;
+      }
+
+      65% {
+        opacity: 0.71988;
+      }
+
+      70% {
+        opacity: 0.53455;
+      }
+
+      75% {
+        opacity: 0.37288;
+      }
+
+      80% {
+        opacity: 0.71428;
+      }
+
+      85% {
+        opacity: 0.70419;
+      }
+
+      90% {
+        opacity: 0.7003;
+      }
+
+      95% {
+        opacity: 0.36108;
+      }
+
+      100% {
+        opacity: 0.24387;
+      }
+    }
+
+    @keyframes textShadow {
+      0% {
+        text-shadow: 0.4389924193300864px 0 1px rgba(0, 30, 255, 0.5), -0.4389924193300864px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      5% {
+        text-shadow: 2.7928974010788217px 0 1px rgba(0, 30, 255, 0.5), -2.7928974010788217px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      10% {
+        text-shadow: 0.02956275843481219px 0 1px rgba(0, 30, 255, 0.5), -0.02956275843481219px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      15% {
+        text-shadow: 0.40218538552878136px 0 1px rgba(0, 30, 255, 0.5), -0.40218538552878136px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      20% {
+        text-shadow: 3.4794037899852017px 0 1px rgba(0, 30, 255, 0.5), -3.4794037899852017px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      25% {
+        text-shadow: 1.6125630401149584px 0 1px rgba(0, 30, 255, 0.5), -1.6125630401149584px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      30% {
+        text-shadow: 0.7015590085143956px 0 1px rgba(0, 30, 255, 0.5), -0.7015590085143956px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      35% {
+        text-shadow: 3.896914047650351px 0 1px rgba(0, 30, 255, 0.5), -3.896914047650351px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      40% {
+        text-shadow: 3.870905614848819px 0 1px rgba(0, 30, 255, 0.5), -3.870905614848819px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      45% {
+        text-shadow: 2.231056963361899px 0 1px rgba(0, 30, 255, 0.5), -2.231056963361899px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      50% {
+        text-shadow: 0.08084290417898504px 0 1px rgba(0, 30, 255, 0.5), -0.08084290417898504px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      55% {
+        text-shadow: 2.3758461067427543px 0 1px rgba(0, 30, 255, 0.5), -2.3758461067427543px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      60% {
+        text-shadow: 2.202193051050636px 0 1px rgba(0, 30, 255, 0.5), -2.202193051050636px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      65% {
+        text-shadow: 2.8638780614874975px 0 1px rgba(0, 30, 255, 0.5), -2.8638780614874975px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      70% {
+        text-shadow: 0.48874025155497314px 0 1px rgba(0, 30, 255, 0.5), -0.48874025155497314px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      75% {
+        text-shadow: 1.8948491305757957px 0 1px rgba(0, 30, 255, 0.5), -1.8948491305757957px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      80% {
+        text-shadow: 0.0833037308038857px 0 1px rgba(0, 30, 255, 0.5), -0.0833037308038857px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      85% {
+        text-shadow: 0.09769827255241735px 0 1px rgba(0, 30, 255, 0.5), -0.09769827255241735px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      90% {
+        text-shadow: 3.443339761481782px 0 1px rgba(0, 30, 255, 0.5), -3.443339761481782px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      95% {
+        text-shadow: 2.1841838852799786px 0 1px rgba(0, 30, 255, 0.5), -2.1841838852799786px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+
+      100% {
+        text-shadow: 2.6208764473832513px 0 1px rgba(0, 30, 255, 0.5), -2.6208764473832513px 0 1px rgba(255, 0, 80, 0.3), 0 0 3px;
+      }
+    }
+
+    .crt {
+      animation: textShadow 1.6s infinite;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="crt">
+    <div class="terminal">
+      <div id="output"></div>
+      <textarea id="command-input" rows="1" autofocus></textarea>
+    </div>
+    <div id="peer-id"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.3.2/peerjs.min.js"></script>
+  <script>
+    const output = document.getElementById('output');
+    const commandInput = document.getElementById('command-input');
+    const peerIdDisplay = document.getElementById('peer-id');
+
+    let peer;
+    let connections = {};
+    let myName;
+    let chatMode = false;
+    let currentChatPeer = null;
+
+    function generateRandomName() {
+      return 'User_' + Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    }
+
+    function initPeer() {
+      peer = new Peer();
+      myName = generateRandomName();
+
+      peer.on('open', (id) => {
+        peerIdDisplay.textContent = `Your Peer ID: ${id}`;
+        addOutput(`Your name is ${myName}`);
+        addOutput(`Your Peer ID: ${id}`);
+        addOutput('Share this ID with others to connect.');
+        addOutput('Use "connect <peer-id>" to connect to another user.');
+      });
+
+      peer.on('connection', (conn) => {
+        setupConnection(conn);
+      });
+    }
+
+    function setupConnection(conn) {
+      conn.on('open', () => {
+        connections[conn.peer] = conn;
+        addOutput(`Connected to ${conn.peer}`);
+      });
+
+      conn.on('data', (data) => {
+        if (data.type === 'message') {
+          addOutput(`${data.sender}: ${data.content}`);
+        }
+      });
+
+      conn.on('close', () => {
+        delete connections[conn.peer];
+        addOutput(`Disconnected from ${conn.peer}`);
+        if (currentChatPeer === conn.peer) {
+          exitChatMode();
+        }
+      });
+    }
+
+    function sendMessage(content, recipient = null) {
+      const message = { type: 'message', sender: myName, content: content };
+      if (recipient) {
+        if (connections[recipient]) {
+          connections[recipient].send(message);
+        } else {
+          addOutput(`Error: Not connected to ${recipient}`);
+        }
+      } else {
+        Object.values(connections).forEach(conn => conn.send(message));
+      }
+    }
+
+    function addOutput(text) {
+      output.innerHTML += text + '\n';
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function enterChatMode(peer = null) {
+      chatMode = true;
+      currentChatPeer = peer;
+      addOutput(`Entered chat mode. Type /quit to exit.`);
+    }
+
+    function exitChatMode() {
+      chatMode = false;
+      currentChatPeer = null;
+      addOutput(`Exited chat mode.`);
+    }
+
+    function processCommand(command) {
+      if (chatMode) {
+        if (command.toLowerCase() === '/quit') {
+          exitChatMode();
+        } else {
+          if (currentChatPeer) {
+            sendMessage(command, currentChatPeer);
+          } else {
+            sendMessage(command);
+          }
+          addOutput(`${myName}: ${command}`);
+        }
+        return;
+      }
+
+      const [cmd, ...args] = command.split(' ');
+      switch (cmd.toLowerCase()) {
+        case 'global':
+          enterChatMode();
+          break;
+        case 'connect':
+          if (args.length > 0) {
+            const conn = peer.connect(args[0]);
+            setupConnection(conn);
+            addOutput(`Connecting to peer: ${args[0]}`);
+            enterChatMode(args[0]);
+          } else {
+            addOutput('Error: Please provide a peer ID');
+          }
+          break;
+        case 'date':
+          addOutput(new Date().toString());
+          break;
+        case 'help':
+          addOutput('Available commands: global, connect <peer-id>, date, help, clear');
+          break;
+        case 'clear':
+          output.innerHTML = '';
+          break;
+        default:
+          addOutput(`Unknown command: ${cmd}`);
+      }
+    }
+
+    commandInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        const command = this.value.trim();
+        if (command) {
+          if (!chatMode) {
+            addOutput(`$ ${command}`);
+          }
+          processCommand(command);
+          this.value = '';
+        }
+      }
+    });
+
+    addOutput('Welcome to the CRT Terminal!');
+    addOutput('Type "help" for available commands.');
+    initPeer();
+  </script>
+</body>
+</html>
